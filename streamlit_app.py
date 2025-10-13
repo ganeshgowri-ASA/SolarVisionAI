@@ -358,23 +358,23 @@ if annotated_image_url:
                 st.info("📄 PDF report generation available. Click to generate.")
                 if st.button("Generate PDF Report"):
                     # Add this block inside the button handler:
-    defects = st.session_state.results.get("predictions", [])
-    annotated = st.session_state.results.get("image", "")
-    original = uploaded_image_url  # Change this to your raw uploaded image variable
-    obs = "Auto-analysis complete. Please see defect summary above."
-    generate_pdf_report(
-        company_name="Anantah Energies Pvt Ltd",
-        logo_url="https://static.yoursite.com/logo.png",  # Change to your logo URL or file path
-        standards="IEC 60891, IS 14286",
-        defect_list=defects,
-        orig_img_url=original,
-        proc_img_url=annotated,
-        obs=obs,
-        file_name="SolarVisionAI-Defect-Report.pdf"
-    )
-    with open("SolarVisionAI-Defect-Report.pdf", "rb") as f:
-        st.download_button("📄 Download PDF Report", f.read(), file_name="SolarVisionAI-Defect-Report.pdf")
-    st.success("✅ PDF professional report generated with branding!")
+                    defects = st.session_state.results.get("predictions", [])
+                    annotated = st.session_state.results.get("image", "")
+                    original = uploaded_image_url  # Change this to your raw uploaded image variable
+                    obs = "Auto-analysis complete. Please see defect summary above."
+                    generate_pdf_report(
+                    company_name="Anantah Energies Pvt Ltd",
+                    logo_url="https://static.yoursite.com/logo.png",  # Change to your logo URL or file path
+                    standards="IEC 60891, IS 14286",
+                    defect_list=defects,
+                    orig_img_url=original,
+                    proc_img_url=annotated,
+                    obs=obs,
+                    file_name="SolarVisionAI-Defect-Report.pdf"
+                 )
+                with open("SolarVisionAI-Defect-Report.pdf", "rb") as f:
+                    st.download_button("📄 Download PDF Report", f.read(), file_name="SolarVisionAI-Defect-Report.pdf")
+                st.success("✅ PDF professional report generated with branding!")
 
                     st.info("PDF generation in progress... (Feature ready for extension)")
     else:
