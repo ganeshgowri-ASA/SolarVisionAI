@@ -1,10 +1,7 @@
-# At the top of your script
 from fpdf import FPDF
-import requests
-import datetime
 import streamlit as st
-import requests
 import pandas as pd
+import requests
 from PIL import Image
 import io
 import base64
@@ -15,6 +12,13 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 import tempfile
 import os
+# Initialize session state
+if 'results' not in st.session_state:
+    st.session_state.results = None
+if 'uploaded_image' not in st.session_state:
+    st.session_state.uploaded_image = None
+if 'company_logo' not in st.session_state:
+    st.session_state.company_logo = None
 def generate_pdf_report(company_name, logo_url, standards, defect_list, orig_img_url, proc_img_url, obs, file_name="Defect_Report.pdf"):
     pdf = FPDF()
     pdf.add_page()
@@ -277,6 +281,8 @@ if st.session_state.uploaded_image and api_key:
                     
             except Exception as e:
                 st.error(f"❌ Error during analysis: {str(e)}")
+                st.write("DEBUG: Annotated image URL returned:", annotated_image_url)
+                st.write("DEBUG: Session state results:", st.session_state.results)
 
 # Display Results
 if st.session_state.results:
@@ -285,8 +291,12 @@ if st.session_state.results:
 # NEW: show bounding/annotated image if available
 # No extra indent if outside any block
 annotated_image_url = st.session_state.results.get("image", None) if "results" in st.session_state and st.session_state.results else None
-if annotated_image_url:
+if annotated_image_url and isinstance(annotated_image_url, str) and (annotated_image_url.startswith("http") or annotated_image_url.startswith("/")):
     st.image(annotated_image_url, caption="Defect Boundaries (Roboflow Overlay)", use_container_width=True)
+else:
+    st.info("No annotated image available from Roboflow for this input.")
+
+
     col1, col2, col3, col4 = st.columns(4)
     # ... rest of metrics code
     predictions = st.session_state.results.get('predictions', [])
@@ -361,7 +371,7 @@ if annotated_image_url:
                     # Add this block inside the button handler:
                     defects = st.session_state.results.get("predictions", [])
                     annotated = st.session_state.results.get("image", "")
-                    original = uploaded_image_url  # Change this to your raw uploaded image variable
+                    original = st.session_state.uploaded_image  # Change this to your raw uploaded image variable
                     obs = "Auto-analysis complete. Please see defect summary above."
                     generate_pdf_report(
                     company_name="Anantah Energies Pvt Ltd",
