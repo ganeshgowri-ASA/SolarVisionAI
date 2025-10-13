@@ -7,11 +7,9 @@ import io
 import base64
 from datetime import datetime
 import json
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.lib.utils import ImageReader
 import tempfile
 import os
+
 # Initialize session state
 if 'results' not in st.session_state:
     st.session_state.results = None
@@ -19,68 +17,111 @@ if 'uploaded_image' not in st.session_state:
     st.session_state.uploaded_image = None
 if 'company_logo' not in st.session_state:
     st.session_state.company_logo = None
-def generate_pdf_report(company_name, logo_url, standards, defect_list, orig_img_url, proc_img_url, obs, file_name="Defect_Report.pdf"):
+
+
+def generate_pdf_report(company_name, logo_url, standards, defect_list, 
+                       orig_img_path, proc_img_url, obs, file_name="Defect_Report.pdf"):
+    """Generate professional PDF report with defect analysis"""
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
-    # Header
+    
+    # Header with logo
     if logo_url:
-        logo_data = requests.get(logo_url).content
-        with open("company_logo.png", 'wb') as f:
-            f.write(logo_data)
-        pdf.image("company_logo.png", x=10, y=8, w=30)
+        try:
+            logo_data = requests.get(logo_url).content
+            with open("company_logo.png", 'wb') as f:
+                f.write(logo_data)
+            pdf.image("company_logo.png", x=10, y=8, w=30)
+        except Exception as e:
+            st.warning(f"Could not load logo: {e}")
+    
     pdf.set_font("Arial", "B", 18)
     pdf.cell(0, 10, company_name, ln=True, align='R')
     pdf.set_font("Arial", size=12)
     pdf.cell(0, 10, f"Standard: {standards}", ln=True, align='R')
     pdf.ln(10)
+    
+    # Title
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "Solar Vision AI Defect Report", ln=True, align='C')
     pdf.set_font("Arial", size=10)
-    pdf.cell(0, 10, f"Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
+    pdf.cell(0, 10, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
     pdf.ln(7)
+    
+    # Defects Index
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "Detected Defects Index:", ln=True)
     pdf.set_font("Arial", size=10)
-    for idx, d in enumerate(defect_list, 1):
-        pdf.cell(0, 8, f"{idx}. {d['class']} | Confidence: {d['confidence']:.2f}", ln=True)
+    
+    if defect_list:
+        for idx, d in enumerate(defect_list, 1):
+            confidence = d.get('confidence', 0)
+            defect_class = d.get('class', 'Unknown')
+            pdf.cell(0, 8, f"{idx}. {defect_class} | Confidence: {confidence:.2%}", ln=True)
+    else:
+        pdf.cell(0, 8, "No defects detected.", ln=True)
+    
     pdf.ln(7)
+    
     # Images
     try:
-        orig_data = requests.get(orig_img_url).content
-        with open("orig_img.png", 'wb') as f:
-            f.write(orig_data)
-        proc_data = requests.get(proc_img_url).content
-        with open("proc_img.png", 'wb') as f:
-            f.write(proc_data)
-    except Exception:
-        pass
-    pdf.cell(0, 10, "Original EL Image:", ln=True)
-    pdf.image("orig_img.png", x=30, w=150)
-    pdf.ln(2)
-    pdf.cell(0, 10, "Processed (Annotated) Image:", ln=True)
-    pdf.image("proc_img.png", x=30, w=150)
+        # Original image
+        if orig_img_path and isinstance(orig_img_path, str):
+            pdf.cell(0, 10, "Original EL Image:", ln=True)
+            if orig_img_path.startswith('http'):
+                orig_data = requests.get(orig_img_path).content
+                with open("orig_img.png", 'wb') as f:
+                    f.write(orig_data)
+                pdf.image("orig_img.png", x=30, w=150)
+            else:
+                pdf.image(orig_img_path, x=30, w=150)
+            pdf.ln(2)
+        
+        # Processed image
+        if proc_img_url and isinstance(proc_img_url, str):
+            pdf.cell(0, 10, "Processed (Annotated) Image:", ln=True)
+            if proc_img_url.startswith('http'):
+                proc_data = requests.get(proc_img_url).content
+                with open("proc_img.png", 'wb') as f:
+                    f.write(proc_data)
+                pdf.image("proc_img.png", x=30, w=150)
+            pdf.ln(2)
+    except Exception as e:
+        st.warning(f"Could not add images to PDF: {e}")
+    
     pdf.ln(7)
-    summary = {}
-    for d in defect_list:
-        k = d['class']
-        summary[k] = summary.get(k,0) + 1
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Defect Count Summary:", ln=True)
-    pdf.set_font("Arial", size=10)
-    for k, v in summary.items():
-        pdf.cell(0, 8, f"{k}: {v}", ln=True)
-    pdf.ln(7)
+    
+    # Defect Summary
+    if defect_list:
+        summary = {}
+        for d in defect_list:
+            k = d.get('class', 'Unknown')
+            summary[k] = summary.get(k, 0) + 1
+        
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 10, "Defect Count Summary:", ln=True)
+        pdf.set_font("Arial", size=10)
+        for k, v in summary.items():
+            pdf.cell(0, 8, f"{k}: {v}", ln=True)
+        pdf.ln(7)
+    
+    # Observations
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "Observations:", ln=True)
     pdf.set_font("Arial", size=10)
     pdf.multi_cell(0, 8, obs)
     pdf.ln(10)
+    
+    # Footer
     pdf.set_y(-28)
     pdf.set_font("Arial", "I", 10)
     pdf.cell(0, 10, f"{company_name} | {standards}", 0, 0, 'L')
-    pdf.cell(0, 10, f"Powered by SolarVisionAI ©", 0, 0, 'R')
+    pdf.cell(0, 10, "Powered by SolarVisionAI ©", 0, 0, 'R')
+    
     pdf.output(file_name)
+    return file_name
+
 
 # Page Configuration
 st.set_page_config(
@@ -132,14 +173,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if 'results' not in st.session_state:
-    st.session_state.results = None
-if 'uploaded_image' not in st.session_state:
-    st.session_state.uploaded_image = None
-if 'company_logo' not in st.session_state:
-    st.session_state.company_logo = None
-
 # Sidebar Configuration
 with st.sidebar:
     st.image("https://raw.githubusercontent.com/streamlit/streamlit/develop/examples/data/logo.png", width=100)
@@ -180,6 +213,7 @@ with st.sidebar:
         if st.button("🔄 Reset All Settings"):
             st.session_state.clear()
             st.success("Settings reset successfully!")
+            st.rerun()
         if st.button("📊 View Analytics"):
             st.info("Analytics feature coming soon!")
 
@@ -243,7 +277,7 @@ with col_info:
 if st.session_state.uploaded_image:
     st.image(st.session_state.uploaded_image, caption="Uploaded Solar Panel Image", use_container_width=True)
 
-# Analysis Button
+# Analysis Button and Results Section
 if st.session_state.uploaded_image and api_key:
     if st.button("🔍 Analyze Defects", use_container_width=True):
         with st.spinner("🤖 AI is analyzing the image..."):
@@ -270,37 +304,27 @@ if st.session_state.uploaded_image and api_key:
                 if response.status_code == 200:
                     st.session_state.results = response.json()
                     st.success("✅ Analysis completed successfully!")
-                    if st.session_state.results:
-                        st.divider()
-                        st.subheader("🎯 Detection Results")
-                        predictions = st.session_state.results.get('predictions', [])
-                        # ...metrics and defect analysis code
-
                 else:
                     st.error(f"❌ API Error: {response.status_code} - {response.text}")
                     
             except Exception as e:
                 st.error(f"❌ Error during analysis: {str(e)}")
-                st.write("DEBUG: Annotated image URL returned:", annotated_image_url)
-                st.write("DEBUG: Session state results:", st.session_state.results)
 
-# Display Results
+# Display Results (Outside the button handler)
 if st.session_state.results:
     st.divider()
     st.subheader("🎯 Detection Results")
-# NEW: show bounding/annotated image if available
-# No extra indent if outside any block
-annotated_image_url = st.session_state.results.get("image", None) if "results" in st.session_state and st.session_state.results else None
-if annotated_image_url and isinstance(annotated_image_url, str) and (annotated_image_url.startswith("http") or annotated_image_url.startswith("/")):
-    st.image(annotated_image_url, caption="Defect Boundaries (Roboflow Overlay)", use_container_width=True)
-else:
-    st.info("No annotated image available from Roboflow for this input.")
-
-
-    col1, col2, col3, col4 = st.columns(4)
-    # ... rest of metrics code
+    
+    # Show annotated image if available
+    annotated_image_url = st.session_state.results.get("image", None)
+    if annotated_image_url and isinstance(annotated_image_url, str) and annotated_image_url.startswith("http"):
+        st.image(annotated_image_url, caption="Defect Boundaries (Roboflow Overlay)", use_container_width=True)
+    else:
+        st.info("No annotated image available from Roboflow for this input.")
+    
     predictions = st.session_state.results.get('predictions', [])
-        # Metrics
+    
+    # Metrics
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total Defects", len(predictions))
@@ -366,35 +390,56 @@ else:
         
         with col_export2:
             if report_format in ["PDF", "Both"]:
-                st.info("📄 PDF report generation available. Click to generate.")
-                if st.button("Generate PDF Report"):
-                    # Add this block inside the button handler:
-                    defects = st.session_state.results.get("predictions", [])
-                    annotated = st.session_state.results.get("image", "")
-                    original = st.session_state.uploaded_image  # Change this to your raw uploaded image variable
-                    obs = "Auto-analysis complete. Please see defect summary above."
-                    generate_pdf_report(
-                    company_name="Anantah Energies Pvt Ltd",
-                    logo_url="https://static.yoursite.com/logo.png",  # Change to your logo URL or file path
-                    standards="IEC 60891, IS 14286",
-                    defect_list=defects,
-                    orig_img_url=original,
-                    proc_img_url=annotated,
-                    obs=obs,
-                    file_name="SolarVisionAI-Defect-Report.pdf"
-                 )
-                with open("SolarVisionAI-Defect-Report.pdf", "rb") as f:
-                    st.download_button("📄 Download PDF Report", f.read(), file_name="SolarVisionAI-Defect-Report.pdf")
-                st.success("✅ PDF professional report generated with branding!")
+                if st.button("📄 Generate PDF Report"):
+                    with st.spinner("Generating PDF report..."):
+                        try:
+                            # Save uploaded image temporarily
+                            temp_img_path = "temp_original.png"
+                            st.session_state.uploaded_image.save(temp_img_path)
+                            
+                            # Generate PDF
+                            defects = st.session_state.results.get("predictions", [])
+                            annotated = st.session_state.results.get("image", "")
+                            obs = f"Analysis completed with {len(defects)} defects detected. " \
+                                  f"High severity: {sum(1 for d in defects if d.get('confidence', 0) > 0.8)}, " \
+                                  f"Medium severity: {sum(1 for d in defects if 0.5 < d.get('confidence', 0) <= 0.8)}, " \
+                                  f"Low severity: {sum(1 for d in defects if d.get('confidence', 0) <= 0.5)}."
+                            
+                            pdf_filename = generate_pdf_report(
+                                company_name=company_name,
+                                logo_url="https://via.placeholder.com/150",  # Replace with actual logo URL
+                                standards="IEC 60891, IS 14286",
+                                defect_list=defects,
+                                orig_img_path=temp_img_path,
+                                proc_img_url=annotated,
+                                obs=obs,
+                                file_name="SolarVisionAI_Defect_Report.pdf"
+                            )
+                            
+                            with open(pdf_filename, "rb") as f:
+                                st.download_button(
+                                    "📄 Download PDF Report",
+                                    f.read(),
+                                    file_name=f"solar_defect_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                                    mime="application/pdf"
+                                )
+                            
+                            st.success("✅ PDF report generated successfully!")
+                            
+                            # Cleanup
+                            if os.path.exists(temp_img_path):
+                                os.remove(temp_img_path)
+                                
+                        except Exception as e:
+                            st.error(f"❌ Error generating PDF: {str(e)}")
+    else:
+        st.info("✅ No defects detected in the image. The solar panel appears to be in good condition.")
 
-                st.info("PDF generation in progress... (Feature ready for extension)")
-    else:
-        st.info("No defects detected in the image. The solar panel appears to be in good condition.")
-    else:
-    if not api_key:
-        st.warning("⚠️ Please enter your Roboflow API key in the sidebar to begin analysis.")
-    else:
-        st.info("👆 Upload an image to start detecting defects.")
+# Warning when API key not provided
+if not api_key:
+    st.warning("⚠️ Please enter your Roboflow API key in the sidebar to begin analysis.")
+elif not st.session_state.uploaded_image:
+    st.info("👆 Upload an image to start detecting defects.")
 
 # Footer
 st.divider()
