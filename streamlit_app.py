@@ -267,10 +267,10 @@ if st.session_state.uploaded_image and api_key:
                     st.session_state.results = response.json()
                     st.success("✅ Analysis completed successfully!")
                     if st.session_state.results:
-    st.divider()
-    st.subheader("🎯 Detection Results")
-    predictions = st.session_state.results.get('predictions', [])
-    # ...metrics and defect analysis code
+                        st.divider()
+                        st.subheader("🎯 Detection Results")
+                        predictions = st.session_state.results.get('predictions', [])
+                        # ...metrics and defect analysis code
 
                 else:
                     st.error(f"❌ API Error: {response.status_code} - {response.text}")
