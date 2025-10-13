@@ -376,7 +376,7 @@ if annotated_image_url:
                     st.download_button("📄 Download PDF Report", f.read(), file_name="SolarVisionAI-Defect-Report.pdf")
                 st.success("✅ PDF professional report generated with branding!")
 
-                    st.info("PDF generation in progress... (Feature ready for extension)")
+                st.info("PDF generation in progress... (Feature ready for extension)")
     else:
         st.info("No defects detected in the image. The solar panel appears to be in good condition.")
 
