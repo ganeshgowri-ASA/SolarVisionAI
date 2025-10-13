@@ -282,19 +282,14 @@ if st.session_state.uploaded_image and api_key:
 if st.session_state.results:
     st.divider()
     st.subheader("🎯 Detection Results")
-
 # NEW: show bounding/annotated image if available
 annotated_image_url = st.session_state.results.get("image", None)
 if annotated_image_url:
     st.image(annotated_image_url, caption="Defect Boundaries (Roboflow Overlay)", use_container_width=True)
-
-col1, col2, col3, col4 = st.columns(4)
-# ... rest of metrics code
-
-    
+    col1, col2, col3, col4 = st.columns(4)
+    # ... rest of metrics code
     predictions = st.session_state.results.get('predictions', [])
-    
-    # Metrics
+        # Metrics
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total Defects", len(predictions))
