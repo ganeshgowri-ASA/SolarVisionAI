@@ -390,8 +390,7 @@ else:
                 st.info("PDF generation in progress... (Feature ready for extension)")
     else:
         st.info("No defects detected in the image. The solar panel appears to be in good condition.")
-
-else:
+    else:
     if not api_key:
         st.warning("⚠️ Please enter your Roboflow API key in the sidebar to begin analysis.")
     else:
