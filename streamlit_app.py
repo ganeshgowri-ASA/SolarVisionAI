@@ -283,7 +283,8 @@ if st.session_state.results:
     st.divider()
     st.subheader("🎯 Detection Results")
 # NEW: show bounding/annotated image if available
-annotated_image_url = st.session_state.results.get("image", None)
+# No extra indent if outside any block
+annotated_image_url = st.session_state.results.get("image", None) if "results" in st.session_state and st.session_state.results else None
 if annotated_image_url:
     st.image(annotated_image_url, caption="Defect Boundaries (Roboflow Overlay)", use_container_width=True)
     col1, col2, col3, col4 = st.columns(4)
