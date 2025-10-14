@@ -26,7 +26,6 @@ try:
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
-    st.warning("⚠️ Install Plotly for advanced visualizations: `pip install plotly`")
 
 # ═══════════════════════════════════════════════════════════════════
 # CONFIGURATION & DATA MODELS
@@ -42,23 +41,23 @@ class UserTier(Enum):
 
 class DefectClassification(Enum):
     """MBJ-based defect classification"""
-    STANDARD = "Standard"  # Expected manufacturing variations
-    NON_STANDARD = "Non-Standard"  # Quality issues requiring attention
+    STANDARD = "Standard"
+    NON_STANDARD = "Non-Standard"
 
 
 @dataclass
 class ModuleConfig:
-    """Enhanced solar module configuration for half-cut and full cells"""
-    rows: int = 6  # Up to 26 for half-cut modules
-    cols: int = 10  # Up to 8 for various configurations
+    """Enhanced solar module configuration"""
+    rows: int = 6
+    cols: int = 10
     cell_width_mm: float = 156.0
     cell_height_mm: float = 156.0
     rated_power_w: float = 300.0
-    cell_type: str = "Monocrystalline"  # Mono/Poly
-    busbar_count: int = 6  # 3BB, 5BB, 6BB, 9BB, 12BB
+    cell_type: str = "Monocrystalline"
+    busbar_count: int = 6
     
     def get_cell_position(self, x: float, y: float, img_width: int, img_height: int) -> str:
-        """Convert pixel coordinates to cell position (A1-Z26 format)"""
+        """Convert pixel coordinates to cell position"""
         cell_width_px = img_width / self.cols
         cell_height_px = img_height / self.rows
         
@@ -75,16 +74,14 @@ class ModuleConfig:
 class TestConditions:
     """IEC 60904-14 Test Conditions"""
     test_date: datetime = field(default_factory=datetime.now)
-    isc_current_a: float = 0.0  # Short circuit current
-    voc_voltage_v: float = 0.0  # Open circuit voltage
-    test_current_a: float = 0.0  # Applied test current (typically 10% Isc)
+    isc_current_a: float = 0.0
+    voc_voltage_v: float = 0.0
+    test_current_a: float = 0.0
     ambient_temp_c: float = 25.0
     module_temp_c: float = 25.0
     power_supply_make: str = ""
     power_supply_model: str = ""
     cable_length_m: float = 0.0
-    
-    # Camera settings
     camera_make: str = ""
     camera_model: str = ""
     exposure_time_ms: float = 0.0
@@ -99,8 +96,8 @@ class TestConditions:
             "Isc (A)": self.isc_current_a,
             "Voc (V)": self.voc_voltage_v,
             "Test Current (A)": self.test_current_a,
-            "Ambient Temp (°C)": self.ambient_temp_c,
-            "Module Temp (°C)": self.module_temp_c,
+            "Ambient Temp (C)": self.ambient_temp_c,
+            "Module Temp (C)": self.module_temp_c,
             "Power Supply": f"{self.power_supply_make} {self.power_supply_model}",
             "Cable Length (m)": self.cable_length_m,
             "Camera": f"{self.camera_make} {self.camera_model}",
@@ -112,7 +109,7 @@ class TestConditions:
 
 @dataclass
 class DefectImpactAnalysis:
-    """Comprehensive defect impact per IEC & MBJ standards"""
+    """Comprehensive defect impact"""
     area_loss_percent: float
     power_loss_w: float
     power_loss_percent: float
@@ -121,7 +118,7 @@ class DefectImpactAnalysis:
     reliability_impact: str
     financial_impact_usd: float
     mbj_classification: DefectClassification
-    defect_grade: str  # A/B/C/D per MBJ
+    defect_grade: str
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -129,7 +126,7 @@ class DefectImpactAnalysis:
 # ═══════════════════════════════════════════════════════════════════
 
 def initialize_session_state():
-    """Initialize all session state variables"""
+    """Initialize session state"""
     defaults = {
         'results': None,
         'uploaded_images': [],
@@ -144,19 +141,17 @@ def initialize_session_state():
 
 
 # ═══════════════════════════════════════════════════════════════════
-# DEFECT ANALYSIS ENGINE WITH MBJ CLASSIFICATION
+# DEFECT ANALYSIS ENGINE
 # ═══════════════════════════════════════════════════════════════════
 
 class EnhancedDefectAnalyzer:
-    """MBJ-compliant defect analyzer with standard/non-standard classification"""
+    """MBJ-compliant defect analyzer"""
     
-    # MBJ Standard defects (expected in manufacturing)
     STANDARD_DEFECTS = [
         'crystal_dislocations', 'edge_wafer', 'striation_rings',
         'belt_marks', 'reduced_lifetime_cast_silicon'
     ]
     
-    # MBJ Non-standard defects (quality issues)
     NON_STANDARD_DEFECTS = [
         'micro_crack', 'crack', 'branch_crack', 'dendritic_crack',
         'hotspot', 'isolated_area', 'dead_cell', 'finger_interruption',
@@ -166,7 +161,6 @@ class EnhancedDefectAnalyzer:
     def __init__(self, module_config: ModuleConfig):
         self.module_config = module_config
         
-        # IEC TS 60904-13 severity thresholds
         self.severity_thresholds = {
             'micro_crack': {'low': 0.6, 'medium': 0.75, 'high': 0.85},
             'crack': {'low': 0.7, 'medium': 0.8, 'high': 0.9},
@@ -176,7 +170,7 @@ class EnhancedDefectAnalyzer:
         }
     
     def analyze_defects(self, predictions: List[Dict], img_width: int, img_height: int) -> pd.DataFrame:
-        """Comprehensive defect analysis with MBJ classification"""
+        """Analyze defects with MBJ classification"""
         if not predictions:
             return pd.DataFrame()
         
@@ -188,20 +182,13 @@ class EnhancedDefectAnalyzer:
             x, y = pred.get('x', 0), pred.get('y', 0)
             width, height = pred.get('width', 0), pred.get('height', 0)
             
-            # Cell location
             cell_position = self.module_config.get_cell_position(x, y, img_width, img_height)
             
-            # MBJ Classification
             mbj_class = (DefectClassification.STANDARD if defect_type in self.STANDARD_DEFECTS 
                         else DefectClassification.NON_STANDARD)
             
-            # Severity
             severity = self._calculate_severity(defect_type, confidence)
-            
-            # Impact analysis
             impact = self._calculate_impact(defect_type, width, height, img_width, img_height, confidence)
-            
-            # MBJ Grading
             grade = self._mbj_grading(impact.power_loss_percent, mbj_class)
             
             analysis_data.append({
@@ -225,7 +212,7 @@ class EnhancedDefectAnalyzer:
         return pd.DataFrame(analysis_data)
     
     def _calculate_severity(self, defect_type: str, confidence: float) -> str:
-        """IEC TS 60904-13 severity calculation"""
+        """Calculate severity"""
         thresholds = self.severity_thresholds.get(
             defect_type, {'low': 0.6, 'medium': 0.75, 'high': 0.85}
         )
@@ -240,27 +227,23 @@ class EnhancedDefectAnalyzer:
     
     def _calculate_impact(self, defect_type: str, width: float, height: float,
                          img_width: int, img_height: int, confidence: float) -> DefectImpactAnalysis:
-        """Calculate impact using IEA PVPS models"""
+        """Calculate impact"""
         defect_area = width * height
         total_area = img_width * img_height
         area_loss_percent = (defect_area / total_area) * 100
         
-        # IEA PVPS multipliers
         severity_multipliers = {
             'micro_crack': 0.5, 'crack': 1.2, 'branch_crack': 2.0,
             'hotspot': 2.5, 'isolated_area': 1.8, 'dead_cell': 5.0
         }
         
         multiplier = severity_multipliers.get(defect_type, 1.0)
-        
-        # Busbar redundancy factor (>6BB reduces impact)
         bb_factor = 1.0 if self.module_config.busbar_count <= 6 else 0.6
         
         base_power_loss = area_loss_percent * multiplier * confidence * bb_factor
         power_loss_w = (base_power_loss / 100) * self.module_config.rated_power_w
         power_loss_percent = (power_loss_w / self.module_config.rated_power_w) * 100
         
-        # Performance classification
         if power_loss_percent >= 15:
             performance = 'Critical'
         elif power_loss_percent >= 8:
@@ -270,7 +253,6 @@ class EnhancedDefectAnalyzer:
         else:
             performance = 'Low'
         
-        # Safety assessment
         if defect_type in ['hotspot'] and confidence > 0.8:
             safety = 'High - Fire Risk'
         elif defect_type in ['crack', 'branch_crack'] and confidence > 0.85:
@@ -278,7 +260,6 @@ class EnhancedDefectAnalyzer:
         else:
             safety = 'Low - Monitor'
         
-        # Reliability
         if power_loss_percent >= 10:
             reliability = 'High - Replace'
         elif power_loss_percent >= 5:
@@ -286,15 +267,12 @@ class EnhancedDefectAnalyzer:
         else:
             reliability = 'Low - Monitor'
         
-        # Financial (25-year, $0.10/kWh)
         annual_kwh_loss = (power_loss_w * 4 * 365) / 1000
         financial = annual_kwh_loss * 25 * 0.10
         
-        # MBJ Classification
         mbj_class = (DefectClassification.STANDARD if defect_type in self.STANDARD_DEFECTS 
                     else DefectClassification.NON_STANDARD)
         
-        # MBJ Grade
         grade = self._mbj_grading(power_loss_percent, mbj_class)
         
         return DefectImpactAnalysis(
@@ -310,21 +288,20 @@ class EnhancedDefectAnalyzer:
         )
     
     def _mbj_grading(self, power_loss_percent: float, classification: DefectClassification) -> str:
-        """MBJ Rev 5.0 grading system"""
+        """MBJ grading"""
         if classification == DefectClassification.STANDARD:
-            return 'A'  # Standard defects don't affect grade
+            return 'A'
         
-        # Non-standard defects
         if power_loss_percent >= 20:
-            return 'D'  # Fail
+            return 'D'
         elif power_loss_percent >= 10:
-            return 'C'  # Fair (80-90% retention)
+            return 'C'
         elif power_loss_percent >= 5:
-            return 'B'  # Good (90-95% retention)
-        return 'A'  # Excellent (>95% retention)
+            return 'B'
+        return 'A'
     
     def create_cell_heatmap(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Cell-level defect heatmap"""
+        """Create cell heatmap"""
         matrix = pd.DataFrame(
             0,
             index=range(1, self.module_config.rows + 1),
@@ -347,182 +324,16 @@ class EnhancedDefectAnalyzer:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# PLOTLY VISUALIZATION ENGINE
-# ═══════════════════════════════════════════════════════════════════
-
-class PlotlyVisualizationEngine:
-    """Advanced Plotly-based visualizations"""
-    
-    @staticmethod
-    def create_comprehensive_dashboard(df: pd.DataFrame, module_config: ModuleConfig):
-        """Create interactive Plotly dashboard"""
-        if df.empty or not PLOTLY_AVAILABLE:
-            return None
-        
-        fig = make_subplots(
-            rows=3, cols=2,
-            subplot_titles=(
-                'Defect Type Distribution',
-                'Severity Analysis',
-                'MBJ Classification',
-                'Power Loss vs Confidence',
-                'Cell Location Heatmap',
-                'Financial Impact'
-            ),
-            specs=[
-                [{'type': 'bar'}, {'type': 'pie'}],
-                [{'type': 'pie'}, {'type': 'scatter'}],
-                [{'type': 'heatmap'}, {'type': 'bar'}]
-            ],
-            vertical_spacing=0.12,
-            horizontal_spacing=0.15
-        )
-        
-        # 1. Defect Type Distribution
-        defect_counts = df['Defect_Type'].value_counts()
-        fig.add_trace(
-            go.Bar(x=defect_counts.index, y=defect_counts.values, 
-                  marker_color='crimson', name='Defects'),
-            row=1, col=1
-        )
-        
-        # 2. Severity Distribution
-        severity_counts = df['Severity'].value_counts()
-        severity_colors = {'Critical': '#FF4444', 'High': '#FFA500', 
-                          'Medium': '#FFD700', 'Low': '#4CAF50'}
-        fig.add_trace(
-            go.Pie(labels=severity_counts.index, values=severity_counts.values,
-                  marker=dict(colors=[severity_colors.get(s, 'gray') for s in severity_counts.index]),
-                  name='Severity'),
-            row=1, col=2
-        )
-        
-        # 3. MBJ Classification
-        mbj_counts = df['MBJ_Classification'].value_counts()
-        fig.add_trace(
-            go.Pie(labels=mbj_counts.index, values=mbj_counts.values,
-                  marker=dict(colors=['#4CAF50', '#FF4444']),
-                  name='MBJ'),
-            row=2, col=1
-        )
-        
-        # 4. Power Loss Scatter
-        fig.add_trace(
-            go.Scatter(
-                x=df['Confidence_%'], y=df['Power_Loss_W'],
-                mode='markers',
-                marker=dict(
-                    size=10,
-                    color=df['Power_Loss_W'],
-                    colorscale='Reds',
-                    showscale=True,
-                    colorbar=dict(x=0.47, len=0.3, y=0.35)
-                ),
-                text=df['Defect_Type'],
-                hovertemplate='<b>%{text}</b><br>Confidence: %{x:.1f}%<br>Power Loss: %{y:.2f}W',
-                name='Power Loss'
-            ),
-            row=2, col=2
-        )
-        
-        # 5. Cell Heatmap
-        analyzer = EnhancedDefectAnalyzer(module_config)
-        cell_matrix = analyzer.create_cell_heatmap(df)
-        fig.add_trace(
-            go.Heatmap(
-                z=cell_matrix.values,
-                x=cell_matrix.columns.tolist(),
-                y=cell_matrix.index.tolist(),
-                colorscale='Reds',
-                showscale=True,
-                colorbar=dict(x=0.47, len=0.3, y=0.03),
-                text=cell_matrix.values,
-                texttemplate='%{text}',
-                textfont={"size": 8}
-            ),
-            row=3, col=1
-        )
-        
-        # 6. Financial Impact
-        financial_by_type = df.groupby('Defect_Type')['Financial_Impact_USD'].sum().sort_values(ascending=False)
-        fig.add_trace(
-            go.Bar(
-                x=financial_by_type.index,
-                y=financial_by_type.values,
-                marker_color='darkred',
-                text=[f'${v:,.0f}' for v in financial_by_type.values],
-                textposition='outside',
-                name='Financial Impact'
-            ),
-            row=3, col=2
-        )
-        
-        # Layout updates
-        fig.update_xaxes(title_text="Defect Type", row=1, col=1)
-        fig.update_yaxes(title_text="Count", row=1, col=1)
-        fig.update_xaxes(title_text="Confidence (%)", row=2, col=2)
-        fig.update_yaxes(title_text="Power Loss (W)", row=2, col=2)
-        fig.update_xaxes(title_text="Column", row=3, col=1)
-        fig.update_yaxes(title_text="Row", row=3, col=1)
-        fig.update_xaxes(title_text="Defect Type", row=3, col=2)
-        fig.update_yaxes(title_text="25Y Loss (USD)", row=3, col=2)
-        
-        fig.update_layout(
-            height=1200,
-            showlegend=False,
-            title_text="<b>Comprehensive EL Defect Analysis Dashboard</b>",
-            title_x=0.5,
-            title_font_size=20
-        )
-        
-        return fig
-    
-    @staticmethod
-    def create_3d_defect_map(df: pd.DataFrame):
-        """3D visualization of defects on module surface"""
-        if df.empty or not PLOTLY_AVAILABLE:
-            return None
-        
-        fig = go.Figure(data=[go.Scatter3d(
-            x=df['X'],
-            y=df['Y'],
-            z=df['Power_Loss_W'],
-            mode='markers',
-            marker=dict(
-                size=df['Width'] / 10,
-                color=df['Power_Loss_W'],
-                colorscale='Reds',
-                showscale=True,
-                colorbar=dict(title="Power Loss (W)")
-            ),
-            text=df['Defect_Type'],
-            hovertemplate='<b>%{text}</b><br>Location: (%{x}, %{y})<br>Power Loss: %{z:.2f}W'
-        )])
-        
-        fig.update_layout(
-            title="3D Defect Distribution Map",
-            scene=dict(
-                xaxis_title="X Position (px)",
-                yaxis_title="Y Position (px)",
-                zaxis_title="Power Loss (W)"
-            ),
-            height=600
-        )
-        
-        return fig
-
-
-# ═══════════════════════════════════════════════════════════════════
-# ROBOFLOW API WITH ENHANCED ERROR HANDLING
+# ROBOFLOW API
 # ═══════════════════════════════════════════════════════════════════
 
 class EnhancedRoboflowAPI:
-    """Roboflow API with 403 error diagnostics"""
+    """Roboflow API with error diagnostics"""
     
     @staticmethod
     def analyze_image(image: Image.Image, api_key: str, workspace: str,
                      project: str, version: int, confidence: float = 0.5) -> Optional[Dict]:
-        """Call Roboflow with detailed error handling"""
+        """Call Roboflow with error handling"""
         
         diagnostics = {
             'api_key_valid': bool(api_key and len(api_key) > 10),
@@ -536,22 +347,18 @@ class EnhancedRoboflowAPI:
         }
         
         try:
-            # Convert image
             buffered = io.BytesIO()
             image.save(buffered, format="JPEG")
             img_str = base64.b64encode(buffered.getvalue()).decode()
             
-            # CRITICAL: Correct API URL format
-            # Format should be: https://detect.roboflow.com/PROJECT_ID/VERSION
             api_url = f"https://detect.roboflow.com/{project}/{version}"
             
             params = {
                 "api_key": api_key,
-                "confidence": int(confidence * 100),  # Convert to integer percentage
+                "confidence": int(confidence * 100),
                 "overlap": 30
             }
             
-            # JSON request
             response = requests.post(
                 api_url,
                 params=params,
@@ -563,17 +370,284 @@ class EnhancedRoboflowAPI:
             diagnostics['status_code'] = response.status_code
             
             if response.status_code == 403:
-                diagnostics['error'] = "403 Forbidden - Check API key permissions"
+                diagnostics['error'] = "403 Forbidden"
                 diagnostics['response_text'] = response.text
                 st.session_state.api_diagnostics = diagnostics
                 
-                st.error("🚫 **Roboflow API Error 403: Forbidden**")
-                with st.expander("🔍 **Diagnostics & Solutions**"):
-                    st.markdown("""
-                    **Possible Causes:**
-                    1. ❌ **Invalid API Key** - Key may be incorrect or expired
-                    2. ❌ **Wrong Workspace/Project** - Project ID doesn't match your account
-                    3. ❌ **API Access Disabled** - Check Roboflow dashboard permissions
-                    4. ❌ **Rate Limit Exceeded** - Too many requests
-                    
-                    **How to Fix:**
+                st.error("403 Forbidden - Check API key permissions")
+                with st.expander("Diagnostics & Solutions"):
+                    st.write("1. Verify API key is correct")
+                    st.write("2. Check project ID matches your Roboflow account")
+                    st.write("3. Ensure API access is enabled")
+                    st.json(diagnostics)
+                
+                return None
+            
+            elif response.status_code == 200:
+                result = response.json()
+                
+                viz_url = f"{api_url}?api_key={api_key}&confidence={int(confidence * 100)}&labels=on&stroke=3&format=image"
+                
+                viz_response = requests.post(
+                    viz_url,
+                    data=img_str,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    timeout=30
+                )
+                
+                if viz_response.status_code == 200:
+                    result['annotated_image_base64'] = base64.b64encode(viz_response.content).decode()
+                
+                diagnostics['success'] = True
+                st.session_state.api_diagnostics = diagnostics
+                return result
+            
+            else:
+                diagnostics['error'] = f"HTTP {response.status_code}"
+                st.session_state.api_diagnostics = diagnostics
+                st.error(f"Error: {response.status_code} - {response.text}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            st.error("Request timed out")
+            return None
+        except Exception as e:
+            diagnostics['error'] = str(e)
+            st.session_state.api_diagnostics = diagnostics
+            st.error(f"Error: {str(e)}")
+            return None
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PDF REPORT
+# ═══════════════════════════════════════════════════════════════════
+
+class ELTemplatePDFReport:
+    """EL template-based PDF report"""
+    
+    @staticmethod
+    def generate_report(company_name: str, df: pd.DataFrame,
+                       original_image: Image.Image, annotated_base64: Optional[str],
+                       module_config: ModuleConfig, test_conditions: TestConditions,
+                       analysis_level: str) -> str:
+        """Generate PDF report"""
+        
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        
+        # Header
+        pdf.set_font("Arial", "B", 18)
+        pdf.cell(0, 12, company_name, ln=True, align='C')
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, "ELECTROLUMINESCENCE INSPECTION REPORT", ln=True, align='C')
+        pdf.set_font("Arial", "I", 9)
+        pdf.cell(0, 6, "IEC TS 60904-13 | IEC 60904-14 | MBJ Rev 5.0", ln=True, align='C')
+        pdf.ln(8)
+        
+        # General Info
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 8, "GENERAL INFORMATION", ln=True)
+        pdf.set_font("Arial", "", 9)
+        
+        info_data = [
+            ["Job No.", f"EL-{datetime.now().strftime('%Y%m%d-%H%M')}"],
+            ["Test Date", test_conditions.test_date.strftime("%Y-%m-%d %H:%M:%S")],
+            ["Module Type", module_config.cell_type],
+            ["Rated Power", f"{module_config.rated_power_w}W"],
+            ["Cell Config", f"{module_config.rows}x{module_config.cols}"],
+            ["Busbar Count", f"{module_config.busbar_count}BB"]
+        ]
+        
+        for row in info_data:
+            pdf.set_font("Arial", "B", 9)
+            pdf.cell(60, 6, row[0], 1)
+            pdf.set_font("Arial", "", 9)
+            pdf.cell(130, 6, str(row[1]), 1)
+            pdf.ln()
+        
+        pdf.ln(5)
+        
+        # Executive Summary
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 8, "EXECUTIVE SUMMARY", ln=True)
+        pdf.set_font("Arial", "", 9)
+        
+        if not df.empty:
+            total_defects = len(df)
+            non_standard = len(df[df['MBJ_Classification'] == 'Non-Standard'])
+            critical = len(df[df['Severity'] == 'Critical'])
+            total_power_loss = df['Power_Loss_W'].sum()
+            
+            summary_text = (
+                f"Total Defects: {total_defects}\n"
+                f"Non-Standard: {non_standard}\n"
+                f"Critical: {critical}\n"
+                f"Power Loss: {total_power_loss:.2f}W\n"
+            )
+            
+            pdf.multi_cell(0, 5, summary_text)
+        else:
+            pdf.cell(0, 6, "No defects detected", ln=True)
+        
+        # Images
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 8, "VISUAL ANALYSIS", ln=True)
+        
+        try:
+            orig_path = "temp_orig.png"
+            original_image.save(orig_path)
+            pdf.set_font("Arial", "B", 9)
+            pdf.cell(0, 6, "Original EL Image:", ln=True)
+            pdf.image(orig_path, x=10, w=190)
+            
+            if annotated_base64:
+                ann_path = "temp_ann.png"
+                with open(ann_path, 'wb') as f:
+                    f.write(base64.b64decode(annotated_base64))
+                pdf.cell(0, 6, "Annotated Image:", ln=True)
+                pdf.image(ann_path, x=10, w=190)
+                if os.path.exists(ann_path):
+                    os.remove(ann_path)
+            
+            if os.path.exists(orig_path):
+                os.remove(orig_path)
+        except Exception as e:
+            pdf.cell(0, 6, f"Error: {str(e)}", ln=True)
+        
+        filename = f"EL_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        pdf.output(filename)
+        return filename
+
+
+# ═══════════════════════════════════════════════════════════════════
+# USER INTERFACE
+# ═══════════════════════════════════════════════════════════════════
+
+def render_ui():
+    """Main UI"""
+    
+    initialize_session_state()
+    
+    st.set_page_config(
+        page_title="SolarVisionAI - EL Inspection",
+        page_icon="☀️",
+        layout="wide"
+    )
+    
+    # Sidebar
+    with st.sidebar:
+        st.markdown("# Configuration")
+        
+        # User Tier
+        tier_names = [t.value['name'] for t in UserTier]
+        selected = st.selectbox("Plan", tier_names)
+        st.session_state.user_tier = next(t for t in UserTier if t.value['name'] == selected)
+        
+        st.divider()
+        
+        # Company
+        company_name = st.text_input("Company", "SolarVisionAI")
+        
+        st.divider()
+        
+        # API
+        api_key = st.text_input("Roboflow API Key", type="password")
+        workspace = st.text_input("Workspace", "el-images-trbib-gcqce")
+        project = st.text_input("Project", "1")
+        version = st.number_input("Version", 1, 10, 1)
+        confidence = st.slider("Confidence", 0.0, 1.0, 0.5)
+        
+        st.divider()
+        
+        # Module
+        module_rows = st.number_input("Rows", 1, 26, 6)
+        module_cols = st.number_input("Columns", 1, 8, 6)
+        rated_power = st.number_input("Power (W)", 50, 600, 500)
+        
+        module_config = ModuleConfig(
+            rows=module_rows,
+            cols=module_cols,
+            rated_power_w=float(rated_power)
+        )
+    
+    # Main
+    st.title(f"☀️ {company_name}")
+    st.markdown("### Professional EL Inspection Platform")
+    
+    # Upload
+    st.markdown("## Upload Images")
+    
+    uploaded_file = st.file_uploader("Drop image", type=['jpg', 'jpeg', 'png'])
+    
+    if uploaded_file:
+        st.session_state.uploaded_images = [Image.open(uploaded_file)]
+        st.image(st.session_state.uploaded_images[0], width=400)
+    
+    # Analyze
+    if st.session_state.uploaded_images and api_key:
+        if st.button("Analyze Defects", type="primary"):
+            with st.spinner("Analyzing..."):
+                image = st.session_state.uploaded_images[0]
+                result = EnhancedRoboflowAPI.analyze_image(
+                    image, api_key, workspace, project, version, confidence
+                )
+                
+                if result:
+                    st.session_state.results = [result]
+                    st.session_state.results[0]['image_obj'] = image
+                    st.success("Analysis complete!")
+                    st.rerun()
+    
+    # Results
+    if st.session_state.results:
+        st.divider()
+        st.markdown("# Results")
+        
+        result = st.session_state.results[0]
+        predictions = result.get('predictions', [])
+        image = result['image_obj']
+        annotated = result.get('annotated_image_base64')
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image(image, caption="Original", use_container_width=True)
+        with col2:
+            if annotated:
+                ann_img = Image.open(io.BytesIO(base64.b64decode(annotated)))
+                st.image(ann_img, caption="Annotated", use_container_width=True)
+        
+        if predictions:
+            analyzer = EnhancedDefectAnalyzer(module_config)
+            df = analyzer.analyze_defects(predictions, image.size[0], image.size[1])
+            
+            st.markdown("### Metrics")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Defects", len(df))
+            with col2:
+                critical = len(df[df['Severity'] == 'Critical'])
+                st.metric("Critical", critical)
+            with col3:
+                loss = df['Power_Loss_W'].sum()
+                st.metric("Power Loss", f"{loss:.1f}W")
+            
+            st.markdown("### Defect Table")
+            st.dataframe(df, use_container_width=True)
+            
+            # Export
+            st.markdown("### Export")
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False)
+            
+            st.download_button(
+                "Download Excel",
+                output.getvalue(),
+                f"analysis_{datetime.now().strftime('%Y%m%d')}.xlsx"
+            )
+
+
+if __name__ == "__main__":
+    render_ui()
