@@ -335,13 +335,27 @@ class EnhancedRoboflowAPI:
                      project: str, version: int, confidence: float = 0.5) -> Optional[Dict]:
         """Call Roboflow with error handling"""
         
+        # Build correct API URL
+        # Roboflow format: https://detect.roboflow.com/PROJECT_ID/VERSION
+        # PROJECT_ID can be either "project-name" or "workspace/project-name"
+        
+        if "/" in project:
+            # User provided full path like "workspace/project"
+            project_id = project
+        else:
+            # User provided just project name
+            project_id = f"{workspace}/{project}" if workspace else project
+        
+        api_url = f"https://detect.roboflow.com/{project_id}/{version}"
+        
         diagnostics = {
             'api_key_valid': bool(api_key and len(api_key) > 10),
             'workspace': workspace,
             'project': project,
+            'project_id_used': project_id,
             'version': version,
             'image_size': image.size,
-            'request_url': f"https://detect.roboflow.com/{project}/{version}",
+            'request_url': api_url,
             'error': None,
             'status_code': None
         }
@@ -350,8 +364,6 @@ class EnhancedRoboflowAPI:
             buffered = io.BytesIO()
             image.save(buffered, format="JPEG")
             img_str = base64.b64encode(buffered.getvalue()).decode()
-            
-            api_url = f"https://detect.roboflow.com/{project}/{version}"
             
             params = {
                 "api_key": api_key,
@@ -374,11 +386,19 @@ class EnhancedRoboflowAPI:
                 diagnostics['response_text'] = response.text
                 st.session_state.api_diagnostics = diagnostics
                 
-                st.error("403 Forbidden - Check API key permissions")
-                with st.expander("Diagnostics & Solutions"):
-                    st.write("1. Verify API key is correct")
-                    st.write("2. Check project ID matches your Roboflow account")
-                    st.write("3. Ensure API access is enabled")
+                st.error("🚫 403 Forbidden - Check API key permissions")
+                with st.expander("🔍 Diagnostics & Solutions"):
+                    st.markdown("""
+                    **Possible Issues:**
+                    1. ❌ Invalid API Key
+                    2. ❌ Wrong Project ID format
+                    3. ❌ API access disabled
+                    
+                    **Common Fixes:**
+                    - Use FULL project ID (e.g., `el-images-trbib-gcqce` not just `1`)
+                    - Check your Roboflow project URL
+                    - Verify API key has not expired
+                    """)
                     st.json(diagnostics)
                 
                 return None
@@ -386,10 +406,17 @@ class EnhancedRoboflowAPI:
             elif response.status_code == 200:
                 result = response.json()
                 
-                viz_url = f"{api_url}?api_key={api_key}&confidence={int(confidence * 100)}&labels=on&stroke=3&format=image"
+                # Get annotated image
+                viz_params = {
+                    "api_key": api_key,
+                    "confidence": int(confidence * 100),
+                    "labels": "on",
+                    "stroke": 3
+                }
                 
                 viz_response = requests.post(
-                    viz_url,
+                    api_url,
+                    params=viz_params,
                     data=img_str,
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                     timeout=30
@@ -405,19 +432,17 @@ class EnhancedRoboflowAPI:
             else:
                 diagnostics['error'] = f"HTTP {response.status_code}"
                 st.session_state.api_diagnostics = diagnostics
-                st.error(f"Error: {response.status_code} - {response.text}")
+                st.error(f"❌ Error: {response.status_code} - {response.text}")
                 return None
                 
         except requests.exceptions.Timeout:
-            st.error("Request timed out")
+            st.error("⏱️ Request timed out")
             return None
         except Exception as e:
             diagnostics['error'] = str(e)
             st.session_state.api_diagnostics = diagnostics
-            st.error(f"Error: {str(e)}")
+            st.error(f"❌ Error: {str(e)}")
             return None
-
-
 # ═══════════════════════════════════════════════════════════════════
 # PDF REPORT
 # ═══════════════════════════════════════════════════════════════════
